@@ -108,6 +108,7 @@ export class WorkersSDK<TEnv extends Record<string, unknown> = {}> {
     private readonly span: Span;
     private readonly spanContext: Context;
     private readonly startTime: number;
+    private readonly logAttributes: Attributes;
     private readonly allowedHeaders: (string | RegExp)[] = ['user-agent', 'cf-ray'];
     private readonly allowedSearch: RegExp | (string | RegExp)[] = /.*/;
 
@@ -169,14 +170,17 @@ export class WorkersSDK<TEnv extends Record<string, unknown> = {}> {
         /**
          * Cloudflare workers provides basically no discoverable metadata to workers.
          */
+        this.logAttributes = {
+            ...(config.environment ? { [SemanticResourceAttributes.DEPLOYMENT_ENVIRONMENT]: config.environment } : {}),
+            [SemanticResourceAttributes.SERVICE_NAME]: config.service,
+        }
         const resource =
             config.resource ??
             new Resource({
-				...(config.environment ? { [SemanticResourceAttributes.DEPLOYMENT_ENVIRONMENT]: config.environment } : {}),
+				...this.logAttributes,
                 [SemanticResourceAttributes.TELEMETRY_SDK_NAME]: 'opentelemetry-sdk-workers',
                 [SemanticResourceAttributes.CLOUD_PROVIDER]: 'cloudflare',
                 [SemanticResourceAttributes.CLOUD_PLATFORM]: 'workers',
-                [SemanticResourceAttributes.SERVICE_NAME]: config.service,
                 [SemanticResourceAttributes.FAAS_NAME]: config.service,
                 [SemanticResourceAttributes.PROCESS_RUNTIME_NAME]: 'Cloudflare-Workers',
             });
@@ -470,6 +474,7 @@ export class WorkersSDK<TEnv extends Record<string, unknown> = {}> {
             },
             resource: this.traceProvider.resource,
             attributes: {
+                ...this.logAttributes,
                 "log.extra": extra
             }
         });
