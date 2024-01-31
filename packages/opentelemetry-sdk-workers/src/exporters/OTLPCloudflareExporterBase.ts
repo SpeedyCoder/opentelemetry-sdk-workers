@@ -86,6 +86,10 @@ export abstract class OTLPCloudflareExporterBase<
 		items: ExportItem[],
 		resultCallback: (result: ExportResult) => void
 	): void {
+		if (items.length === 0) {
+			resultCallback({ code: ExportResultCode.SUCCESS });
+			return;
+		}
 		if (this._sendingPromises.length >= this._concurrencyLimit) {
 			resultCallback({
 				code: ExportResultCode.FAILED,
@@ -135,7 +139,7 @@ export abstract class OTLPCloudflareExporterBase<
 			body: compressed.body,
 			signal,
 			// @ts-ignore
-			duplex: "half" 
+			duplex: "half"
 		})
 			.then(res => {
 				if (!res.ok) {

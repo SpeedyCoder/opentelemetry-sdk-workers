@@ -1,7 +1,7 @@
 import { OTLPJsonTraceExporter, OTLPJsonTraceExporterConfig } from './exporters/OTLPJsonTraceExporter';
 import { OTLPJsonLogExporter } from './exporters/OTLPJsonLogExporter';
 import { Resource } from '@opentelemetry/resources';
-import { Context, DiagLogLevel, Span, SpanKind, TextMapPropagator, trace, } from '@opentelemetry/api';
+import { Attributes, Context, DiagLogLevel, Span, SpanKind, TextMapPropagator, trace, } from '@opentelemetry/api';
 import {
     CompositePropagator,
     ExportResultCode,
@@ -29,6 +29,10 @@ type NodeSdkConfigBase = {
      * The current worker's name. Corresponds to `service.name` resource attribute.
      */
     readonly service: string;
+    /**
+     * The current worker's environment. Corresponds to `deployment.environment` resource attribute.
+     */
+    readonly environment?: string;
     /**
      * Provide default resource attributes.
      */
@@ -58,6 +62,8 @@ type NodeSdkConfigBase = {
 	 * @default false
 	 */
 	consoleLogEnabled?: boolean;
+
+    initSpanAttributes?: Attributes
 };
 
 type NodeSdkBuiltInExporter = {
@@ -166,6 +172,7 @@ export class WorkersSDK<TEnv extends Record<string, unknown> = {}> {
         const resource =
             config.resource ??
             new Resource({
+				...(config.environment ? { [SemanticResourceAttributes.DEPLOYMENT_ENVIRONMENT]: config.environment } : {}),
                 [SemanticResourceAttributes.TELEMETRY_SDK_NAME]: 'opentelemetry-sdk-workers',
                 [SemanticResourceAttributes.CLOUD_PROVIDER]: 'cloudflare',
                 [SemanticResourceAttributes.CLOUD_PLATFORM]: 'workers',
@@ -199,7 +206,7 @@ export class WorkersSDK<TEnv extends Record<string, unknown> = {}> {
         });
         this.requestTracer = this.traceProvider.getTracer('opentelemetry-sdk-workers', '0.1.0');
 
-        const { span, spanContext } = this.initSpan();
+        const { span, spanContext } = this.initSpan(config.initSpanAttributes ?? {});
         this.span = span;
         this.spanContext = spanContext;
 
@@ -346,7 +353,7 @@ export class WorkersSDK<TEnv extends Record<string, unknown> = {}> {
         }
     }
 
-    private initSpan() {
+    private initSpan(attributes: Attributes) {
         const context = new SimpleContext();
 
         let name: string;
@@ -367,6 +374,7 @@ export class WorkersSDK<TEnv extends Record<string, unknown> = {}> {
         const span = this.requestTracer.startSpan(
             name,
             {
+                attributes,
                 // TODO: What is the right SpanKind for cron jobs?
                 kind: 'type' in this.eventOrRequest ? SpanKind.SERVER : SpanKind.INTERNAL,
                 startTime: Date.now(),
