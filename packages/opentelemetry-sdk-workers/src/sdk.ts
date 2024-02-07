@@ -283,6 +283,19 @@ export class WorkersSDK<TEnv extends Record<string, unknown> = {}> {
         this.ctx.waitUntil(this.end());
     }
 
+    public newSpan(name: string, attributes?: Attributes): Span {
+        const childSpan = this.requestTracer.startSpan(
+            name, 
+            {
+                kind: SpanKind.CLIENT,
+                attributes,
+            }, 
+            this.spanContext
+        );
+        trace.setSpan(this.spanContext, childSpan);
+        return childSpan;
+    }
+
     private async _fetch(fetchTarget: {fetch: Fetcher["fetch"]}, request: Request | string, requestInitr?: RequestInit | Request): Promise<Response> {
         let downstreamRequest: Request;
         if (request instanceof Request) {
@@ -313,18 +326,14 @@ export class WorkersSDK<TEnv extends Record<string, unknown> = {}> {
         const method = (request.method ?? 'GET').toUpperCase();
         const spanName = `HTTP ${method}`;
         const url = new URL(request.url);
-        const childSpan = this.requestTracer.startSpan(spanName, {
-            kind: SpanKind.CLIENT,
-            attributes: {
-                [SemanticAttributes.HTTP_METHOD]: method,
-                [SemanticAttributes.HTTP_URL]: request.url,
-                [SemanticAttributes.HTTP_TARGET]: `${url.pathname}${url.search}`,
-                [SemanticAttributes.HTTP_HOST]: url.host,
-                [SemanticAttributes.HTTP_SCHEME]: url.protocol.replace(':', ''),
-            },
-        }, this.spanContext);
-        trace.setSpan(this.spanContext, childSpan);
-        return childSpan;
+
+        return this.newSpan(spanName, {
+            [SemanticAttributes.HTTP_METHOD]: method,
+            [SemanticAttributes.HTTP_URL]: request.url,
+            [SemanticAttributes.HTTP_TARGET]: `${url.pathname}${url.search}`,
+            [SemanticAttributes.HTTP_HOST]: url.host,
+            [SemanticAttributes.HTTP_SCHEME]: url.protocol.replace(':', ''),
+        });
     }
 
     private endSpan(request: Request, span: Span, responseOrError: Response | Error) {
