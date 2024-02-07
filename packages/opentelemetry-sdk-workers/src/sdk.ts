@@ -1,7 +1,7 @@
 import { OTLPJsonTraceExporter, OTLPJsonTraceExporterConfig } from './exporters/OTLPJsonTraceExporter';
 import { OTLPJsonLogExporter } from './exporters/OTLPJsonLogExporter';
 import { Resource } from '@opentelemetry/resources';
-import { Attributes, Context, DiagLogLevel, Span, SpanKind, TextMapPropagator, trace, } from '@opentelemetry/api';
+import { Attributes, Context, DiagLogLevel, Span, SpanKind, SpanStatusCode, TextMapPropagator, trace, } from '@opentelemetry/api';
 import {
     CompositePropagator,
     ExportResultCode,
@@ -262,6 +262,10 @@ export class WorkersSDK<TEnv extends Record<string, unknown> = {}> {
             endTime += 0.01;
         }
 
+        this.span.setStatus({ 
+            code: response.status < 400 ? SpanStatusCode.OK : SpanStatusCode.ERROR, 
+            message: response.status.toString(),
+        });
         this.span.end(endTime);
         this.ctx.waitUntil(this.end());
         return response;
@@ -324,7 +328,6 @@ export class WorkersSDK<TEnv extends Record<string, unknown> = {}> {
     }
 
     private endSpan(request: Request, span: Span, responseOrError: Response | Error) {
-        const url = new URL('url' in responseOrError ? responseOrError.url : request.url);
         if (responseOrError instanceof Response) {
             span.setAttribute(SemanticAttributes.HTTP_STATUS_CODE, responseOrError.status);
         } else {
@@ -380,7 +383,7 @@ export class WorkersSDK<TEnv extends Record<string, unknown> = {}> {
             {
                 attributes,
                 // TODO: What is the right SpanKind for cron jobs?
-                kind: 'type' in this.eventOrRequest ? SpanKind.SERVER : SpanKind.INTERNAL,
+                kind: 'type' in this.eventOrRequest ? SpanKind.INTERNAL : SpanKind.SERVER,
                 startTime: Date.now(),
             },
             context
