@@ -1,8 +1,11 @@
-import { appendResourcePathToUrl, appendRootPathToUrlIfNeeded } from "@opentelemetry/otlp-exporter-base";
+import {
+	appendResourcePathToUrl,
+	appendRootPathToUrlIfNeeded,
+} from "@opentelemetry/otlp-exporter-base";
 import { LogRecord } from "../types";
 import {
 	OTLPCloudflareExporterBase,
-	OTLPCloudflareExporterBaseConfig
+	OTLPCloudflareExporterBaseConfig,
 } from "./OTLPCloudflareExporterBase";
 import { createExportLogsServiceRequest } from "./utils";
 import { opentelemetry as proto } from "../proto";
@@ -13,10 +16,10 @@ const {
 	proto: {
 		collector: {
 			logs: {
-				v1: { ExportLogsServiceRequest }
-			}
-		}
-	}
+				v1: { ExportLogsServiceRequest },
+			},
+		},
+	},
 } = proto;
 
 export interface OTLPProtoLogExporterConfig
@@ -29,7 +32,9 @@ export class OTLPProtoLogExporter extends OTLPCloudflareExporterBase<
 > {
 	contentType = "application/x-protobuf";
 	static fromEnv(env: Record<string, unknown>) {
-		return new OTLPProtoLogExporter(OTLPCloudflareExporterBase.parseEnv(env, "LOGS"));
+		return new OTLPProtoLogExporter(
+			OTLPCloudflareExporterBase.parseEnv(env, "LOGS")
+		);
 	}
 	convert(logRecords: LogRecord[]): Uint8Array {
 		const convertedLogs = createExportLogsServiceRequest(logRecords, false);
@@ -38,7 +43,7 @@ export class OTLPProtoLogExporter extends OTLPCloudflareExporterBase<
 		return ExportLogsServiceRequest.encode(message).finish();
 	}
 	getUrl(config: OTLPCloudflareExporterBaseConfig): string {
-		if (typeof config.url === 'string') {
+		if (typeof config.url === "string") {
 			return config.url;
 		}
 
@@ -47,9 +52,14 @@ export class OTLPProtoLogExporter extends OTLPCloudflareExporterBase<
 		}
 
 		if (config.endpoints?.default?.length > 0) {
-			return appendResourcePathToUrl(config.endpoints.default, DEFAULT_COLLECTOR_RESOURCE_PATH);
+			return appendResourcePathToUrl(
+				config.endpoints.default,
+				DEFAULT_COLLECTOR_RESOURCE_PATH
+			);
 		}
 
-		throw new Error("You must provide a valid URL for this exporter. Make sure either config.url or env.OTEL_EXPORTER_OTLP_ENDPOINT are specified.");
+		throw new Error(
+			"You must provide a valid URL for this exporter. Make sure either config.url or env.OTEL_EXPORTER_OTLP_ENDPOINT are specified."
+		);
 	}
 }

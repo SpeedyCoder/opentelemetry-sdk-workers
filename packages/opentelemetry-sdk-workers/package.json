@@ -1,6 +1,6 @@
 {
 	"name": "@speedycoder/opentelemetry-sdk-workers",
-	"version": "1.0.10",
+	"version": "1.0.11",
 	"description": "Open Telemetry Cloudflare Workers Library. Provides a basic sdk for instrumenting workers.",
 	"type": "module",
 	"module": "dist/index.js",
@@ -15,6 +15,14 @@
 		"./performance": {
 			"types": "./dist/performance.d.ts",
 			"default": "./dist/performance.js"
+		},
+		"./exporters/OTLPConsoleTraceExporter": {
+			"types": "./dist/exporters/OTLPConsoleTraceExporter.d.ts",
+			"default": "./dist/exporters/OTLPConsoleTraceExporter.js"
+		},
+		"./exporters/OTLPConsoleLogExporter": {
+			"types": "./dist/exporters/OTLPConsoleLogExporter.d.ts",
+			"default": "./dist/exporters/OTLPConsoleLogExporter.js"
 		},
 		"./exporters/OTLPProtoTraceExporter": {
 			"types": "./dist/exporters/OTLPProtoTraceExporter.d.ts",

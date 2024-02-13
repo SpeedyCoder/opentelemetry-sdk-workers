@@ -9,16 +9,16 @@ export class SimpleContextManager implements ContextManager {
 		target: T
 	): T {
 		const manager = this;
-		const contextWrapper = function(this: unknown, ...args: unknown[]) {
+		const contextWrapper = function (this: unknown, ...args: unknown[]) {
 			return manager.with(context, () => target.apply(this, args));
 		};
 		Object.defineProperty(contextWrapper, "length", {
 			enumerable: false,
 			configurable: true,
 			writable: false,
-			value: target.length
+			value: target.length,
 		});
-		return (contextWrapper as unknown) as T;
+		return contextWrapper as unknown as T;
 	}
 
 	/**

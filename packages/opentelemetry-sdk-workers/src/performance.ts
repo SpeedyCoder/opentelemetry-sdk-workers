@@ -5,7 +5,7 @@ const unsupportedMethods: Array<string | symbol> = [
 	"clearMeasures",
 	"getEntries",
 	"getEntriesByType",
-	"getEntriesByName"
+	"getEntriesByName",
 ];
 
 class UnsupportedMethodError extends Error {
@@ -19,7 +19,7 @@ const performanceShim = new Proxy(
 	{
 		now: () => Date.now(),
 		// TODO: How should this behave in a worker?
-		timeOrigin: Date.now()
+		timeOrigin: Date.now(),
 	},
 	{
 		get(target, prop, receiver) {
@@ -27,7 +27,7 @@ const performanceShim = new Proxy(
 				throw new UnsupportedMethodError(prop.toString());
 			}
 			return Reflect.get(target, prop, receiver);
-		}
+		},
 	}
 );
 

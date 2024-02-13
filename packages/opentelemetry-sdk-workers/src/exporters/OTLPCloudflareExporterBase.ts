@@ -1,22 +1,24 @@
 import { diag } from "@opentelemetry/api";
-import { baggageUtils, ExportResult, ExportResultCode } from "@opentelemetry/core";
+import {
+	baggageUtils,
+	ExportResult,
+	ExportResultCode,
+} from "@opentelemetry/core";
 import {
 	configureExporterTimeout,
 	ExportServiceError,
 	OTLPExporterConfigBase,
 	OTLPExporterError,
-	parseHeaders
+	parseHeaders,
 } from "@opentelemetry/otlp-exporter-base";
 import { isError } from "lodash-es";
-
-
 
 export type OTLPCloudflareExporterBaseConfig = Omit<
 	OTLPExporterConfigBase,
 	"hostname"
 > & {
 	url?: string;
-	endpoints?: { default?: string, traces?: string; logs?: string; },
+	endpoints?: { default?: string; traces?: string; logs?: string };
 	compress?: boolean;
 };
 
@@ -38,19 +40,37 @@ export abstract class OTLPCloudflareExporterBase<
 	protected headers: Record<string, string>;
 	protected enableCompression: boolean;
 
-	public static parseEnv(env: Record<string, unknown>, exporterType: "LOGS" | "TRACES" | "METRICS") {
-		const headers = baggageUtils.parseKeyPairsIntoRecord(env[`OTEL_EXPORTER_OTLP_${exporterType}_HEADERS`] as string | undefined ?? env["OTEL_EXPORTER_OTLP_HEADERS"] as string | undefined ?? '');
-		const compressRawValue = env[`OTEL_EXPORTER_${exporterType}_COMPRESSION_ENABLED`] as string | undefined ?? env["OTEL_EXPORTER_COMPRESSION_ENABLED"] as string | undefined ?? 'true';
+	public static parseEnv(
+		env: Record<string, unknown>,
+		exporterType: "LOGS" | "TRACES" | "METRICS"
+	) {
+		const headers = baggageUtils.parseKeyPairsIntoRecord(
+			(env[`OTEL_EXPORTER_OTLP_${exporterType}_HEADERS`] as
+				| string
+				| undefined) ??
+				(env["OTEL_EXPORTER_OTLP_HEADERS"] as string | undefined) ??
+				""
+		);
+		const compressRawValue =
+			(env[`OTEL_EXPORTER_${exporterType}_COMPRESSION_ENABLED`] as
+				| string
+				| undefined) ??
+			(env["OTEL_EXPORTER_COMPRESSION_ENABLED"] as string | undefined) ??
+			"true";
 		// Compress defaults to true
-		const compress = !(compressRawValue === "0" || compressRawValue === "false");
+		const compress = !(
+			compressRawValue === "0" || compressRawValue === "false"
+		);
 		return {
 			endpoints: {
-				default: env["OTEL_EXPORTER_OTLP_ENDPOINT"] as string | undefined ?? env["OTLP_ENDPOINT"] as string | undefined,
+				default:
+					(env["OTEL_EXPORTER_OTLP_ENDPOINT"] as string | undefined) ??
+					(env["OTLP_ENDPOINT"] as string | undefined),
 				traces: env["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"] as string | undefined,
 				logs: env["OTEL_EXPORTER_OTLP_LOGS_ENDPOINT"] as string | undefined,
 			},
 			headers,
-			compress
+			compress,
 		} satisfies OTLPCloudflareExporterBaseConfig;
 	}
 
@@ -93,7 +113,7 @@ export abstract class OTLPCloudflareExporterBase<
 		if (this._sendingPromises.length >= this._concurrencyLimit) {
 			resultCallback({
 				code: ExportResultCode.FAILED,
-				error: new Error("Concurrent export limit reached")
+				error: new Error("Concurrent export limit reached"),
 			});
 			return;
 		}
@@ -134,25 +154,27 @@ export abstract class OTLPCloudflareExporterBase<
 			headers: {
 				"content-type": this.contentType,
 				...compressed.headers,
-				...this.headers
+				...this.headers,
 			},
 			body: compressed.body,
 			signal,
 			// @ts-ignore
-			duplex: "half"
+			duplex: "half",
 		})
-			.then(res => {
+			.then((res) => {
 				if (!res.ok) {
 					throw new OTLPExporterError(res.statusText, res.status);
 				}
 			})
-			.catch(error => {
+			.catch((error) => {
 				if (isError(error)) {
 					if (error.name === "TimeoutError") {
 						throw new OTLPExporterError("Request Timeout");
 					}
 				}
-				throw new OTLPExporterError(`There was an error sending spans:\n\t${error}\nDouble check that your exporter URL is correct and the endpoint is valid.`);
+				throw new OTLPExporterError(
+					`There was an error sending spans:\n\t${error}\nDouble check that your exporter URL is correct and the endpoint is valid.`
+				);
 			});
 
 		this._sendingPromises.push(promise);

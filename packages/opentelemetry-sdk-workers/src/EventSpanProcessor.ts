@@ -4,7 +4,7 @@ import {
 	ReadableSpan,
 	Span,
 	SpanExporter,
-	SpanProcessor
+	SpanProcessor,
 } from "@opentelemetry/sdk-trace-base";
 
 export class EventSpanProcessor implements SpanProcessor {
@@ -14,7 +14,7 @@ export class EventSpanProcessor implements SpanProcessor {
 
 	forceFlush(): Promise<void> {
 		return new Promise((resolve, reject) => {
-			this.exporter.export(Array.from(this.spans), result => {
+			this.exporter.export(Array.from(this.spans), (result) => {
 				if (result.code === ExportResultCode.SUCCESS) {
 					this.spans.clear();
 					resolve();

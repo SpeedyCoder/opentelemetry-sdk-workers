@@ -5,8 +5,10 @@ export default {
 	entry: [
 		"src/index.ts",
 		"src/performance.ts",
+		"src/exporters/OTLPConsoleTraceExporter.ts",
+		"src/exporters/OTLPConsoleLogExporter.ts",
 		"src/exporters/OTLPProtoTraceExporter.ts",
 		"src/exporters/OTLPProtoLogExporter.ts",
 	],
-	noExternal: ['protobufjs'],
+	noExternal: ["protobufjs"],
 };

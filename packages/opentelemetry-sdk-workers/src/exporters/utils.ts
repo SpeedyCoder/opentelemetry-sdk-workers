@@ -1,6 +1,14 @@
 import { hrTimeToNanoseconds, hexToBase64 } from "@opentelemetry/core";
-import { IAnyValue, IInstrumentationScope, IKeyValue, IResource } from "@opentelemetry/otlp-transformer";
-import { toAttributes, toAnyValue } from "@opentelemetry/otlp-transformer/build/src/common/internal.js";
+import {
+	IAnyValue,
+	IInstrumentationScope,
+	IKeyValue,
+	IResource,
+} from "@opentelemetry/otlp-transformer";
+import {
+	toAttributes,
+	toAnyValue,
+} from "@opentelemetry/otlp-transformer/build/src/common/internal.js";
 import { Resource } from "@opentelemetry/resources";
 import { LogRecord } from "../types";
 
@@ -31,13 +39,12 @@ export type IExportLogsServiceRequest = {
 	resourceLogs: IResourceLogs[];
 };
 
-
 export function createExportLogsServiceRequest(
 	spans: LogRecord[],
 	useHex?: boolean
 ) {
 	return {
-		resourceLogs: spanRecordsToResourceLogs(spans, useHex)
+		resourceLogs: spanRecordsToResourceLogs(spans, useHex),
 	};
 }
 
@@ -78,13 +85,13 @@ function spanRecordsToResourceLogs(
 		for (const [, scopeLogs] of ilmMap) {
 			if (scopeLogs.length > 0) {
 				const { name, version } = scopeLogs[0].instrumentationLibrary;
-				const logs = scopeLogs.map(logRecord =>
+				const logs = scopeLogs.map((logRecord) =>
 					sdkLogRecordToOtlpSpan(logRecord, useHex)
 				);
 
 				scopeResourceLogs.push({
 					scope: { name, version },
-					logRecords: logs
+					logRecords: logs,
 				});
 			}
 		}
@@ -92,9 +99,9 @@ function spanRecordsToResourceLogs(
 		const transformedSpans: IResourceLogs = {
 			resource: {
 				attributes: toAttributes(resource.attributes),
-				droppedAttributesCount: 0
+				droppedAttributesCount: 0,
 			},
-			scopeLogs: scopeResourceLogs
+			scopeLogs: scopeResourceLogs,
 		};
 
 		out.push(transformedSpans);
@@ -123,6 +130,6 @@ export function sdkLogRecordToOtlpSpan(
 		attributes: toAttributes(logRecord.attributes),
 		droppedAttributesCount: 0,
 		traceId: useHex ? logRecord.traceId : hexToBase64(logRecord.traceId),
-		spanId: useHex ? logRecord.spanId : hexToBase64(logRecord.spanId)
+		spanId: useHex ? logRecord.spanId : hexToBase64(logRecord.spanId),
 	};
 }
