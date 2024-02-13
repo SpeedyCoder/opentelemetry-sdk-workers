@@ -23,8 +23,8 @@ export class OTLPConsoleLogExporter {
 					method = "error";
 					break;
 			}
-			const {body, ...meta} = record
-			console[method](body, meta)
+			const {body, attributes} = record
+			console[method](body, JSON.stringify(attributes))
 		})
 		resultCallback({code: ExportResultCode.SUCCESS})
 	}

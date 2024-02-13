@@ -7,8 +7,8 @@ export class OTLPConsoleTraceExporter {
 		resultCallback: (result: ExportResult) => void
 	): void {
 		spans.forEach((span) => {
-			const {name, ...meta} = span
-			console.log(name, meta)
+			const {name, attributes} = span
+			console.log(name,  JSON.stringify(attributes))
 		})
 		resultCallback({code: ExportResultCode.SUCCESS})
 	}
