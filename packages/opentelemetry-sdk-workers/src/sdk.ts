@@ -84,6 +84,11 @@ type NodeSdkConfigBase = {
 	 */
 	consoleLogEnabled?: boolean;
 
+	/**
+	 * Whether to initialize trace from the incoming request.
+	 * @default true
+	 */
+	initFromIncomingRequest?: boolean;
 	initSpanAttributes?: Attributes;
 };
 
@@ -278,7 +283,8 @@ export class WorkersSDK<TEnv extends Record<string, unknown> = {}> {
 		);
 
 		const { span, spanContext } = this.initSpan(
-			config.initSpanAttributes ?? {}
+			config.initSpanAttributes ?? {},
+			config.initFromIncomingRequest ?? true
 		);
 		this.span = span;
 		this.spanContext = spanContext;
@@ -464,7 +470,7 @@ export class WorkersSDK<TEnv extends Record<string, unknown> = {}> {
 		}
 	}
 
-	private initSpan(attributes: Attributes) {
+	private initSpan(attributes: Attributes, initFromIncomingRequest: boolean) {
 		const context = new SimpleContext();
 
 		let name: string;
@@ -477,15 +483,17 @@ export class WorkersSDK<TEnv extends Record<string, unknown> = {}> {
 					"You must provide the request to start for fetch events!"
 				);
 			}
+
 			const url = new URL(this.eventOrRequest.url);
 			name = `fetch ${this.eventOrRequest.method} ${url.pathname}`;
 
-			// TODO: We should toggle or allow an opt-in for parent trace extraction maybe
-			this.propagator.extract(
-				context,
-				this.eventOrRequest.headers,
-				headersTextMapper
-			);
+			if (initFromIncomingRequest) {
+				this.propagator.extract(
+					context,
+					this.eventOrRequest.headers,
+					headersTextMapper
+				);
+			}
 		}
 
 		const span = this.requestTracer.startSpan(
