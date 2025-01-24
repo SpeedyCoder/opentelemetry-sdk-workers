@@ -1,17 +1,18 @@
 import {
 	OTLPJsonTraceExporter,
-	OTLPJsonTraceExporterConfig,
+	type OTLPJsonTraceExporterConfig,
 } from "./exporters/OTLPJsonTraceExporter";
 import { OTLPJsonLogExporter } from "./exporters/OTLPJsonLogExporter";
 import { Resource } from "@opentelemetry/resources";
 import {
-	Attributes,
-	Context,
-	DiagLogLevel,
-	Span,
+	type Attributes,
+	type Context,
+	type DiagLogLevel,
+	type Span,
 	SpanKind,
+	type SpanStatus,
 	SpanStatusCode,
-	TextMapPropagator,
+	type TextMapPropagator,
 	trace,
 } from "@opentelemetry/api";
 import {
@@ -24,10 +25,10 @@ import {
 } from "@opentelemetry/core";
 import {
 	BasicTracerProvider,
-	SpanExporter,
-	Tracer,
+	type SpanExporter,
+	type Tracer,
 	AlwaysOnSampler,
-	Sampler,
+	type Sampler,
 } from "@opentelemetry/sdk-trace-base";
 import { EventSpanProcessor } from "./EventSpanProcessor";
 import { SimpleContext } from "./SimpleContext";
@@ -35,11 +36,11 @@ import {
 	SemanticResourceAttributes,
 	SemanticAttributes,
 } from "@opentelemetry/semantic-conventions";
-import { Diary, diary, LogEvent, enable } from "diary";
+import { type Diary, diary, type LogEvent, enable } from "diary";
 import { HeadersTextMapper } from "./HeadersTextExtractor";
 import { cloneRequest } from "./utils";
-import { LogRecord } from "./types";
-import { LogExporter } from "./exporters/LogExporter";
+import type { LogRecord } from "./types";
+import type { LogExporter } from "./exporters/LogExporter";
 
 const headersTextMapper = new HeadersTextMapper();
 
@@ -90,6 +91,7 @@ type NodeSdkConfigBase = {
 	 */
 	initFromIncomingRequest?: boolean;
 	initSpanAttributes?: Attributes;
+	getInitSpanNameFromRequestPath?: (path: string) => string;
 };
 
 type NodeSdkBuiltInExporter = {
@@ -152,10 +154,10 @@ export class WorkersSDK<TEnv extends Record<string, unknown> = {}> {
 		ctx: CfContext,
 		config: Partial<NodeSdkConfig> = {}
 	) {
-		const rawAttributes = env["OTEL_RESOURCE_ATTRIBUTES"] as string;
-		const attributes = this.#parseAttributes(rawAttributes);
+		const rawAttributes = env.OTEL_RESOURCE_ATTRIBUTES as string;
+		const attributes = WorkersSDK.#parseAttributes(rawAttributes);
 
-		const serviceName = env["OTEL_SERVICE_NAME"] as string | undefined;
+		const serviceName = env.OTEL_SERVICE_NAME as string | undefined;
 		if (serviceName === null) {
 			throw new Error(
 				"You must provide a service name via env.OTEL_SERVICE_NAME."
@@ -177,8 +179,8 @@ export class WorkersSDK<TEnv extends Record<string, unknown> = {}> {
 			})
 		);
 
-		const rawLoggingValue = env["OTEL_EXPORTER_LOGS_ENABLED"];
-		const rawConsoleLogValue = env["OTEL_EXPORTER_LOGS_CONSOLE_ENABLED"];
+		const rawLoggingValue = env.OTEL_EXPORTER_LOGS_ENABLED;
+		const rawConsoleLogValue = env.OTEL_EXPORTER_LOGS_CONSOLE_ENABLED;
 		const loggingEnabled =
 			rawLoggingValue === "1" || rawLoggingValue === "true";
 		const consoleEnabled =
@@ -214,10 +216,10 @@ export class WorkersSDK<TEnv extends Record<string, unknown> = {}> {
 	) {
 		let config: NodeSdkConfig;
 		let env: Record<string, unknown> = {};
-		if (configOrUnk == null) {
+		if (configOrUnk === null) {
 			config = envOrConfig as NodeSdkConfig;
 		} else {
-			config = configOrUnk!;
+			config = configOrUnk;
 			env = envOrConfig as Record<string, unknown>;
 		}
 		this.#env = env;
@@ -284,7 +286,8 @@ export class WorkersSDK<TEnv extends Record<string, unknown> = {}> {
 
 		const { span, spanContext } = this.initSpan(
 			config.initSpanAttributes ?? {},
-			config.initFromIncomingRequest ?? true
+			config.initFromIncomingRequest ?? true,
+			config.getInitSpanNameFromRequestPath
 		);
 		this.span = span;
 		this.spanContext = spanContext;
@@ -338,30 +341,19 @@ export class WorkersSDK<TEnv extends Record<string, unknown> = {}> {
 			);
 		}
 
-		let endTime = Date.now();
-		if (this.startTime === endTime) {
-			endTime += 0.01;
-		}
-
-		this.span.setStatus({
-			code: response.status < 400 ? SpanStatusCode.OK : SpanStatusCode.ERROR,
-			message: response.status.toString(),
-		});
-		this.span.end(endTime);
-		this.ctx.waitUntil(this.end());
+		this.ctx.waitUntil(
+			this.end(Date.now(), {
+				code: response.status < 500 ? SpanStatusCode.OK : SpanStatusCode.ERROR,
+				message: response.status.toString(),
+			})
+		);
 		return response;
 	}
 	public res: (response: Response) => Response = this.sendResponse.bind(this);
 
 	public captureException(ex: Error): void {
 		this.span.recordException(ex);
-
-		let endTime = Date.now();
-		if (this.startTime === endTime) {
-			endTime += 0.01;
-		}
-		this.span.end(endTime);
-		this.ctx.waitUntil(this.end());
+		this.ctx.waitUntil(this.end(Date.now()));
 	}
 
 	public newSpan(name: string, attributes?: Attributes): Span {
@@ -445,7 +437,16 @@ export class WorkersSDK<TEnv extends Record<string, unknown> = {}> {
 		span.end(new Date());
 	}
 
-	public async end() {
+	public async end(baseEndTime: number, spanStatus?: SpanStatus) {
+		let endTime = baseEndTime;
+		if (this.startTime === endTime) {
+			endTime += 0.01;
+		}
+		if (spanStatus) {
+			this.span.setStatus(spanStatus);
+		}
+		this.span.end(endTime);
+
 		try {
 			const exportPromises = [this.traceProvider.forceFlush()];
 			if (this.logExporter) {
@@ -470,7 +471,11 @@ export class WorkersSDK<TEnv extends Record<string, unknown> = {}> {
 		}
 	}
 
-	private initSpan(attributes: Attributes, initFromIncomingRequest: boolean) {
+	private initSpan(
+		attributes: Attributes,
+		initFromIncomingRequest: boolean,
+		getSpanNameFromRequestPath?: (path: string) => string
+	) {
 		const context = new SimpleContext();
 
 		let name: string;
@@ -485,7 +490,11 @@ export class WorkersSDK<TEnv extends Record<string, unknown> = {}> {
 			}
 
 			const url = new URL(this.eventOrRequest.url);
-			name = `fetch ${this.eventOrRequest.method} ${url.pathname}`;
+			name = `fetch ${this.eventOrRequest.method} ${
+				getSpanNameFromRequestPath
+					? getSpanNameFromRequestPath(url.pathname)
+					: url.pathname
+			}`;
 
 			if (initFromIncomingRequest) {
 				this.propagator.extract(
@@ -642,14 +651,14 @@ export class WorkersSDK<TEnv extends Record<string, unknown> = {}> {
 			// Leading and trailing whitespaces are trimmed.
 			key = key.trim();
 			value = value.trim().split('^"|"$').join("");
-			if (!this.#isValidAndNotEmptyKey(key)) {
+			if (!WorkersSDK.#isValidAndNotEmptyKey(key)) {
 				throw new Error(
-					`Attribute key should be a ASCII string with a length greater than 0 and not exceed 255 characters.`
+					"Attribute key should be a ASCII string with a length greater than 0 and not exceed 255 characters."
 				);
 			}
-			if (!this.#isValidAttributeKey(value)) {
+			if (!WorkersSDK.#isValidAttributeKey(value)) {
 				throw new Error(
-					`Attribute value should be a ASCII string with a length not exceed 255 characters`
+					"Attribute value should be a ASCII string with a length not exceed 255 characters"
 				);
 			}
 			attributes[key] = value;
@@ -665,7 +674,7 @@ export class WorkersSDK<TEnv extends Record<string, unknown> = {}> {
 	 * @returns Whether the String is valid.
 	 */
 	static #isValidAttributeKey(name: string) {
-		return name.length <= 255 && this.#isPrintableString(name);
+		return name.length <= 255 && WorkersSDK.#isPrintableString(name);
 	}
 
 	static #isPrintableString(str: string) {
@@ -685,6 +694,6 @@ export class WorkersSDK<TEnv extends Record<string, unknown> = {}> {
 	 * @returns Whether the String is valid and not empty.
 	 */
 	static #isValidAndNotEmptyKey(str: string) {
-		return str.length > 0 && this.#isValidAttributeKey(str);
+		return str.length > 0 && WorkersSDK.#isValidAttributeKey(str);
 	}
 }
