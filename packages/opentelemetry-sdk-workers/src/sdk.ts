@@ -216,7 +216,7 @@ export class WorkersSDK<TEnv extends Record<string, unknown> = {}> {
 	) {
 		let config: NodeSdkConfig;
 		let env: Record<string, unknown> = {};
-		if (configOrUnk === null) {
+		if (configOrUnk == null) {
 			config = envOrConfig as NodeSdkConfig;
 		} else {
 			config = configOrUnk;
